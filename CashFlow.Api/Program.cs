@@ -6,9 +6,11 @@ using Serilog;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-
+using OpenTelemetry.Metrics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
+
 
 // LOGS
 Log.Logger = new LoggerConfiguration()
@@ -23,6 +25,11 @@ builder.Services.AddSingleton<DbConnectionFactory>();
 builder.Services.AddScoped<LancamentoRepository>();
 builder.Services.AddScoped<ConsolidadoRepository>();
 builder.Services.AddScoped<LancamentoService>();
+builder.Services.AddScoped<IConsolidadoRepository,ConsolidadoRepository>();
+builder.Services.AddScoped<IOutboxRepository,OutboxRepository>();
+builder.Services.AddScoped<IEventosProcessadosRepository,EventosProcessadosRepository>();
+
+builder.Services.AddHostedService<OutboxWorker>();
 
 builder.Services.AddHostedService<ConsolidadoWorker>();
 
@@ -49,6 +56,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+
+ builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddPrometheusExporter();
+    });
+
+
 var app = builder.Build();
 
 
@@ -59,6 +77,23 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.MapControllers();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
 app.MapHealthChecks("/health");
+
+// Prometheus endpoint
+app.MapPrometheusScrapingEndpoint("/metrics");
+
+// Important for Docker
+app.Urls.Add("http://0.0.0.0:8080");
 
 app.Run();

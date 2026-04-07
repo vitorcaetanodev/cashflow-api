@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.Api
+    container_name: cashflow-api
+    ports:
+      - "8080:8080"
+    environment:
+      ConnectionStrings__Default: "Host=cashflow-api.czsq40a84p85.us-east-2.rds.amazonaws.com;Port=5432;Database=postgres;Username=postgres;Password=cashflow;SSL Mode=Require;Trust Server Certificate=true"
+      Jwt__Key: "cashflow-super-secret-key-256bits!!"
+      Jwt__Issuer: "cashflow-api"
+      Jwt__Audience: "cashflow-client"
+      Auth__Usuario: "admin"
+      Auth__Senha: "cashflow"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.Worker
+    container_name: cashflow-worker
+    environment:
+      ConnectionStrings__Default: "Host=cashflow-api.czsq40a84p85.us-east-2.rds.amazonaws.com;Port=5432;Database=postgres;Username=postgres;Password=cashflow;SSL Mode=Require;Trust Server Certificate=true"
+      Worker__IntervalMs: "2000"
+      Worker__BatchSize: "100"
+      Worker__MaxRetries: "5"
+
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana
+    container_name: cashflow-grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
