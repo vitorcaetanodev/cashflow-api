@@ -28,6 +28,8 @@ builder.Services.AddScoped<LancamentoService>();
 builder.Services.AddScoped<IConsolidadoRepository,ConsolidadoRepository>();
 builder.Services.AddScoped<IOutboxRepository,OutboxRepository>();
 builder.Services.AddScoped<IEventosProcessadosRepository,EventosProcessadosRepository>();
+builder.Services.AddSingleton<KafkaProducer>();
+builder.Services.AddHostedService<KafkaConsumer>();
 
 builder.Services.AddHostedService<OutboxWorker>();
 
