@@ -253,7 +253,9 @@ A consulta de consolidado é `SELECT ... WHERE data = $1` por chave primária �
 └── sql-fixes/
     └── migrations.sql      Schema completo do banco
 ```
-
+▶️ Rodar testes
+cd CashFlow.Tests
+dotnet test
 ---
 
 ## Variáveis de ambiente
