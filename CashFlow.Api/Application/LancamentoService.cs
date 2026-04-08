@@ -5,40 +5,51 @@ namespace CashFlow.Api.Application;
 
 public class LancamentoService
 {
-   private readonly LancamentoRepository _repo;
-   private readonly ILogger<LancamentoService> _logger;
-   private readonly KafkaProducer _kafka;
+    private readonly ILancamentoRepository _repo;
+    private readonly ILogger<LancamentoService> _logger;
+    private readonly IKafkaProducer _kafka;
 
+    public LancamentoService(
+        ILancamentoRepository repo,
+        ILogger<LancamentoService> logger,
+        IKafkaProducer kafka)
+    {
+        _repo = repo;
+        _logger = logger;
+        _kafka = kafka;
+    }
 
-   public LancamentoService(LancamentoRepository repo, ILogger<LancamentoService> logger, KafkaProducer kafka)
-   {
-       _repo = repo;
-       _logger = logger;
-       _kafka = kafka;
-   }
+    public async Task Criar(decimal valor, TipoLancamento tipo)
+    {
+        if (valor <= 0)
+            throw new ArgumentException("O valor deve ser maior que zero", nameof(valor));
 
-   public async Task Criar(decimal valor, TipoLancamento tipo)
-   {
-       try
-       {
-           var l = new Lancamento { Valor = valor, Tipo = tipo };
-
-           await _repo.Inserir(l);
-
-           _logger.LogInformation("Lançamento criado {Id}", l.Id);
-
-           await _kafka.PublishAsync("lancamentos", new
+        try
+        {
+            var lancamento = new Lancamento
             {
-                Id = l.Id,
-                Valor = l.Valor,
-                Tipo = l.Tipo,
-                Data = l.Data
+                Valor = valor,
+                Tipo = tipo,
+                Data = DateTime.UtcNow
+            };
+
+            await _repo.Inserir(lancamento);
+
+            _logger.LogInformation("Lançamento criado {Id}", lancamento.Id);
+
+            // mantém seu Kafka funcionando
+            await _kafka.PublishAsync("lancamentos", new
+            {
+                Id = lancamento.Id,
+                Valor = lancamento.Valor,
+                Tipo = lancamento.Tipo,
+                Data = lancamento.Data
             });
-       }
-       catch (Exception ex)
-       {
-           _logger.LogError(ex, "Erro ao criar lançamento");
-           throw;
-       }
-   }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao criar lançamento");
+            throw;
+        }
+    }
 }

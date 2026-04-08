@@ -1,7 +1,7 @@
 using Confluent.Kafka;
 using System.Text.Json;
 
-public class KafkaProducer
+public class KafkaProducer : IKafkaProducer
 {
     private readonly IProducer<Null, string> _producer;
 
@@ -23,5 +23,11 @@ public class KafkaProducer
         {
             Value = json
         });
+    }
+
+    public Task Publicar (string topico, string mensagem)
+    {
+        //implementação Real
+        return Task.CompletedTask;
     }
 }
