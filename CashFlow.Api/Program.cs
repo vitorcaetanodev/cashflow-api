@@ -22,13 +22,13 @@ builder.Host.UseSerilog();
 
 // DI
 builder.Services.AddSingleton<DbConnectionFactory>();
-builder.Services.AddScoped<LancamentoRepository>();
-builder.Services.AddScoped<ConsolidadoRepository>();
 builder.Services.AddScoped<LancamentoService>();
-builder.Services.AddScoped<IConsolidadoRepository,ConsolidadoRepository>();
-builder.Services.AddScoped<IOutboxRepository,OutboxRepository>();
-builder.Services.AddScoped<IEventosProcessadosRepository,EventosProcessadosRepository>();
+builder.Services.AddScoped<ILancamentoRepository, LancamentoRepository>();
+builder.Services.AddScoped<IConsolidadoRepository, ConsolidadoRepository>();
+builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
+builder.Services.AddScoped<IEventosProcessadosRepository, EventosProcessadosRepository>();
 builder.Services.AddSingleton<KafkaProducer>();
+builder.Services.AddSingleton<IKafkaProducer>(sp => sp.GetRequiredService<KafkaProducer>());
 builder.Services.AddHostedService<KafkaConsumer>();
 
 builder.Services.AddHostedService<OutboxWorker>();
@@ -72,14 +72,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 var app = builder.Build();
 
 
-app.UseAuthentication();
-app.UseAuthorization();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
-
+app.UseDeveloperExceptionPage();
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = _ => false
@@ -94,8 +94,5 @@ app.MapHealthChecks("/health");
 
 // Prometheus endpoint
 app.MapPrometheusScrapingEndpoint("/metrics");
-
-// Important for Docker
-app.Urls.Add("http://0.0.0.0:8080");
 
 app.Run();

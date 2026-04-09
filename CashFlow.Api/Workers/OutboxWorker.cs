@@ -9,9 +9,7 @@ namespace CashFlow.Api.Workers;
 
 public class OutboxWorker : BackgroundService
 {
-    private readonly IOutboxRepository          _outboxRepo;
-    private readonly IConsolidadoRepository     _consolidadoRepo;
-    private readonly IEventosProcessadosRepository _idempotencia;
+    private readonly IServiceScopeFactory       _scopeFactory;
     private readonly ILogger<OutboxWorker>      _logger;
     private readonly IConfiguration             _config;
 
@@ -20,17 +18,13 @@ public class OutboxWorker : BackgroundService
     private readonly IAsyncPolicy _resiliencePolicy;
 
     public OutboxWorker(
-        IOutboxRepository          outboxRepo,
-        IConsolidadoRepository     consolidadoRepo,
-        IEventosProcessadosRepository idempotencia,
+        IServiceScopeFactory       scopeFactory,
         ILogger<OutboxWorker>      logger,
         IConfiguration             config)
     {
-        _outboxRepo      = outboxRepo;
-        _consolidadoRepo = consolidadoRepo;
-        _idempotencia    = idempotencia;
-        _logger          = logger;
-        _config          = config;
+        _scopeFactory = scopeFactory;
+        _logger       = logger;
+        _config       = config;
 
         // Retry: 3 tentativas com backoff exponencial
         _retryPolicy = Policy
@@ -93,7 +87,10 @@ public class OutboxWorker : BackgroundService
     private async Task ProcessarLote(
         int batchSize, int maxRetries, CancellationToken ct)
     {
-        var eventos = await _outboxRepo.BuscarPendentes(batchSize);
+        using var scope = _scopeFactory.CreateScope();
+        var outboxRepo = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
+
+        var eventos = await outboxRepo.BuscarPendentes(batchSize);
         if (!eventos.Any()) return;
 
         _logger.LogInformation("Processando {Count} eventos", eventos.Count());
@@ -108,16 +105,21 @@ public class OutboxWorker : BackgroundService
 
     private async Task ProcessarEvento(OutboxEvent evento, int maxRetries)
     {
-        using var scope = _logger.BeginScope(
+        using var scope = _scopeFactory.CreateScope();
+        var outboxRepo = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
+        var consolidadoRepo = scope.ServiceProvider.GetRequiredService<IConsolidadoRepository>();
+        var idempotencia = scope.ServiceProvider.GetRequiredService<IEventosProcessadosRepository>();
+
+        using var logScope = _logger.BeginScope(
             new Dictionary<string, object> { ["EventoId"] = evento.Id });
 
         try
         {
             // Idempotência: ignora se já processado
-            if (await _idempotencia.JaProcessado(evento.Id))
+            if (await idempotencia.JaProcessado(evento.Id))
             {
                 _logger.LogDebug("Evento {Id} já processado — ignorando", evento.Id);
-                await _outboxRepo.MarcarProcessado(evento.Id);
+                await outboxRepo.MarcarProcessado(evento.Id);
                 return;
             }
 
@@ -129,9 +131,9 @@ public class OutboxWorker : BackgroundService
                 // Débito reduz saldo
                 var valor = payload.Tipo == "DEBITO" ? -payload.Valor : payload.Valor;
 
-                await _consolidadoRepo.AtualizarSaldo(payload.Data.Date, valor);
-                await _idempotencia.Registrar(evento.Id);
-                await _outboxRepo.MarcarProcessado(evento.Id);
+                await consolidadoRepo.AtualizarSaldo(payload.Data.Date, valor);
+                await idempotencia.Registrar(evento.Id);
+                await outboxRepo.MarcarProcessado(evento.Id);
 
                 _logger.LogInformation(
                     "Evento {Id} processado. Tipo: {Tipo}, Valor: {Valor}",
@@ -141,7 +143,7 @@ public class OutboxWorker : BackgroundService
         catch (Exception ex)
         {
             var novasTentativas = evento.Tentativas + 1;
-            await _outboxRepo.IncrementarTentativas(evento.Id);
+            await outboxRepo.IncrementarTentativas(evento.Id);
 
             _logger.LogError(ex,
                 "Falha ao processar evento {Id}. Tentativa {N}/{Max}",
@@ -149,7 +151,7 @@ public class OutboxWorker : BackgroundService
 
             if (novasTentativas >= maxRetries)
             {
-                await _outboxRepo.MoverParaDeadLetter(evento, ex.Message);
+                await outboxRepo.MoverParaDeadLetter(evento, ex.Message);
                 _logger.LogWarning(
                     "Evento {Id} movido para dead letter após {N} falhas",
                     evento.Id, novasTentativas);

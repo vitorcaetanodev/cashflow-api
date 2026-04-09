@@ -21,8 +21,15 @@ public class LancamentoController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Criar([FromBody] Request req)
     {
-        await _service.Criar(req.Valor, req.Tipo);
-        return Ok();
+        try
+        {
+            await _service.Criar(req.Valor, req.Tipo);
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.ToString()); 
+        }
     }
 
     [HttpGet]

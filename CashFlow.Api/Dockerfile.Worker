@@ -1,9 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /app
+WORKDIR /src
 COPY . .
-RUN dotnet publish CashFlow.Api.csproj -c Release -o /out
+RUN rm -rf CashFlow.Api/obj CashFlow.Api/bin
+RUN dotnet nuget locals all --clear
+RUN dotnet restore "CashFlow.Api/CashFlow.Api.csproj" --no-cache
+RUN dotnet publish "CashFlow.Api/CashFlow.Api.csproj" -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
-COPY --from=build /out .
+COPY --from=build /app/publish .
+EXPOSE 8080
 ENTRYPOINT ["dotnet", "CashFlow.Api.dll"]

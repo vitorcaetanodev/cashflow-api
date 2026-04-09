@@ -36,15 +36,15 @@ public class LancamentoService
             await _repo.Inserir(lancamento);
 
             _logger.LogInformation("Lançamento criado {Id}", lancamento.Id);
-
-            // mantém seu Kafka funcionando
-            await _kafka.PublishAsync("lancamentos", new
-            {
-                Id = lancamento.Id,
-                Valor = lancamento.Valor,
-                Tipo = lancamento.Tipo,
-                Data = lancamento.Data
-            });
+            
+                await _kafka.PublishAsync("lancamentos", new
+                {
+                    Id = lancamento.Id,
+                    Valor = lancamento.Valor,
+                    Tipo = lancamento.Tipo,
+                    Data = lancamento.Data
+                }); 
+            
         }
         catch (Exception ex)
         {

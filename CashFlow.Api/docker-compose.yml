@@ -2,10 +2,48 @@ version: "3.9"
 
 services:
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: cashflow-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - cashflow-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: cashflow-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - cashflow-network
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    container_name: cashflow-kafdrop
+    depends_on:
+      - kafka
+    ports:
+      - "19000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: kafka:29092
+    networks:
+      - cashflow-network
+
   api:
     build:
-      context: .
-      dockerfile: Dockerfile.Api
+      context: ..
+      dockerfile: CashFlow.Api/Dockerfile.Api
     container_name: cashflow-api
     ports:
       - "8080:8080"
@@ -16,67 +54,37 @@ services:
       Jwt__Audience: "cashflow-client"
       Auth__Usuario: "admin"
       Auth__Senha: "cashflow"
-
-      # 🔥 KAFKA
-      Kafka__BootstrapServers: "kafka:9092"
-
+      Kafka__BootstrapServers: "kafka:29092"
     depends_on:
       - kafka
+    networks:
+      - cashflow-network
 
   worker:
     build:
-      context: .
-      dockerfile: Dockerfile.Worker
+      context: ..
+      dockerfile: CashFlow.Api/Dockerfile.Worker
     container_name: cashflow-worker
     environment:
       ConnectionStrings__Default: "Host=cashflow-api.czsq40a84p85.us-east-2.rds.amazonaws.com;Port=5432;Database=postgres;Username=postgres;Password=cashflow;SSL Mode=Require;Trust Server Certificate=true"
       Worker__IntervalMs: "2000"
       Worker__BatchSize: "100"
       Worker__MaxRetries: "5"
-
-      # 🔥 KAFKA
-      Kafka__BootstrapServers: "kafka:9092"
-
+      Kafka__BootstrapServers: "kafka:29092"
     depends_on:
       - kafka
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    depends_on:
-      - zookeeper
-    ports:
-      - 9092:9092
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
-  kafdrop:
-    image: obsidiandynamics/kafdrop:latest
-    depends_on:
-      - kafka
-    ports:
-      - 19000:9000
-    environment:
-      KAFKA_BROKERCONNECT: kafka:29092
-
+    networks:
+      - cashflow-network
 
   prometheus:
     image: prom/prometheus
-    container_name: prometheus
+    container_name: cashflow-prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+    networks:
+      - cashflow-network
 
   grafana:
     image: grafana/grafana
@@ -85,3 +93,9 @@ services:
       - "3000:3000"
     depends_on:
       - prometheus
+    networks:
+      - cashflow-network
+
+networks:
+  cashflow-network:
+    driver: bridge

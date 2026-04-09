@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
 
   <ItemGroup>
@@ -48,4 +49,4 @@
 
 </Project>
 
-<!-- dotnet add package Microsoft.AspNetCore.OpenApi - -version 8.0.0 --> 
+<!-- dotnet add package Microsoft.AspNetCore.OpenApi - -version 8.0.0 -->
