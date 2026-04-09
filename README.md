@@ -253,6 +253,25 @@ A consulta de consolidado é `SELECT ... WHERE data = $1` por chave primária �
 └── sql-fixes/
     └── migrations.sql      Schema completo do banco
 ```
+## Prints da Api
+
+<img width="1857" height="643" alt="image" src="https://github.com/user-attachments/assets/e073664f-933d-4836-afe9-1ccd4dc8125c" />
+
+Lançamento 50000 Crédito
+
+<img width="1761" height="764" alt="image" src="https://github.com/user-attachments/assets/a8c2eca5-b23b-4889-a1d4-702e934474c9" />
+
+Lançamento 20000 Débito 
+
+<img width="1780" height="853" alt="image" src="https://github.com/user-attachments/assets/901f5eb0-30d8-4b96-bba5-6925763603e9" />
+
+Lançamentos Get
+
+<img width="1781" height="724" alt="image" src="https://github.com/user-attachments/assets/0d8e56e1-20a1-493e-bbd4-24fd72cd9f2f" />
+
+Relatórios de Lançamentos Saldo
+
+<img width="1774" height="775" alt="image" src="https://github.com/user-attachments/assets/4a4a9b1a-7ef9-4cab-b4b1-f9fb6be33207" />
 
 ---
 
